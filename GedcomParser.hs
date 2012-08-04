@@ -26,7 +26,7 @@ data Elem = Elem {
                 elemChildren :: [Elem]
             } deriving (Show)
 
-indent n = concat . (replicate n) $ "  "
+indent n = concat . replicate n $ "  "
 
 trimValue value = case value of
     Nothing -> Nothing
@@ -47,7 +47,7 @@ line level = do
     spaces
     tag <- many1 upper
     spaces
-    value <- fmap trimValue $ optionMaybe $ manyTill (anyChar) newline
+    value <- fmap trimValue $ optionMaybe $ manyTill anyChar newline
     return $ Line level tag value id
 
 -- parses an element
@@ -60,7 +60,7 @@ element level = do
             return $ Elem lineTag lineValue lineId children
 
 -- parses a document
-document = (element 0) `endBy` whitespaces
+document = element 0 `endBy` whitespaces
 
 -- normalizes an element by merging values of CONC and CONT
 -- elements with parent element value
@@ -88,7 +88,9 @@ elemToXml indentation Elem{..} =
     ++ "<" ++ elemTag
     ++ maybe "" (\i -> " id=\"@" ++ i ++ "@\"") elemId
     ++ case elemChildren of
-        [] -> ">" ++ normalizeValue elemValue ++ "</" ++ elemTag ++ ">"
+        [] -> case normalizeValue elemValue of
+                "" -> " />"
+                text -> ">" ++ text ++ "</" ++ elemTag ++ ">"
         _ -> maybe "" (\v -> " value=\"" ++ v ++ "\"") elemValue ++ ">\n"
             ++ unlines (map (elemToXml (indentation + 1)) elemChildren)
             ++ indent indentation ++ "</" ++ elemTag ++ ">"
