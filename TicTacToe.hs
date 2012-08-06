@@ -1,3 +1,13 @@
+{-
+  A learning tic-tac-toe player in Haskell. It learns the game
+  by playing against itself repeatedly.
+  It can play against humans too!
+
+  A solution to rubyquiz 11 (http://rubyquiz.com/quiz11.html).
+
+  Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net>
+-}
+
 {-# LANGUAGE BangPatterns #-}
 
 module TicTacToe where
