@@ -193,7 +193,7 @@ learningPlay (LearningPlayer move mem gen) board = let
       in case filter (isWin (otherMove move) . snd) otherNext of
         ((pos,_):_) -> (LearningPlayer move mem gen, makeMove pos move board)
         [] -> let
-          scores = map (\b -> (b, boardScore b mem)) $ next
+          scores = map (\b -> (b, boardScore b mem)) next
           (board', (w, _, d)) = maximumBy (comparing (calcScore . snd)) scores
           in if w /= 0
              then (LearningPlayer move mem gen, board')
