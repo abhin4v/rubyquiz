@@ -72,9 +72,9 @@ scoreMappings dict tokens =
 -- finds maximum num mappings which have best scores for the given tokens.
 findBestMappings :: Dict -> Int -> [String] -> [Mapping]
 findBestMappings dict num tokens = let
-  mappings = (scoreMappings dict tokens)
+  mappings = scoreMappings dict tokens
              . S.toList
-             . foldl' (\mappings -> -- find num best num mappings
+             . foldl' (\mappings -> -- find the best num mappings
                         S.fromList . take num
                         . map fst . scoreMappings dict tokens . S.toList
                         . findMappingsForToken dict mappings)
@@ -91,7 +91,7 @@ findMappingsForToken dict mappings token =
        . reverse . sortBy (comparing M.size)
        . S.toList $ mappings of
     -- the token is already translatable. return current mappings.
-    Just dtoken -> trace (printf "Translated %s -> %s" token dtoken) $ mappings
+    Just dtoken -> trace (printf "Translated %s -> %s" token dtoken) mappings
 
     -- the token is not translatable yet. return current mappings merged
     -- with the mappings for the token.
