@@ -1,7 +1,7 @@
 {-
   Decrypts a cryptogram (a substitution cypher).
   A solution to rubyquiz 13 (http://rubyquiz.com/quiz13.html).
-  Usage: ./Cryptograms dictionary_file encrypted_file
+  Usage: ./Cryptograms dictionary_file encrypted_file num_max_mappings
 
   Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net>
 -}
@@ -14,7 +14,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Control.Monad (foldM)
 import Data.Char (toLower, isAlpha)
-import Data.List (foldl', find, sortBy)
+import Data.List (foldl', find, sortBy, nub)
 import Data.Maybe (isJust, fromJust, mapMaybe, catMaybes, fromMaybe)
 import Data.Ord (comparing)
 import System.Environment (getArgs)
@@ -50,25 +50,36 @@ translateTokens mapping =
   map (\token ->
         fromMaybe (replicate (length token ) '-') . translateToken mapping $ token)
 
+-- checks if the given word is in the dictionary.
+inDict :: Dict -> String -> Bool
+inDict dict word =
+  case M.lookup (length word) dict of
+    Nothing -> False
+    Just ws -> word `S.member` ws
+
 -- scores a mapping by counting the number of translated tokens that are
 -- in the dictionary.
 scoreMapping :: Dict -> Mapping -> [String] -> Int
 scoreMapping dict mapping =
-  length
-  . filter (\w -> case M.lookup (length w) dict of
-                    Nothing -> False
-                    Just ws -> w `S.member` ws)
-  . mapMaybe (translateToken mapping)
+  length . filter (inDict dict) . mapMaybe (translateToken mapping)
 
--- finds the mappings which have best scores for the given tokens.
-findBestMappings :: Dict -> [String] -> [Mapping]
-findBestMappings dict tokens = let
-  mappings = reverse
-             . sortBy (comparing snd)
-             . map (\mapping -> (mapping, scoreMapping dict mapping tokens))
+-- scores multiple mappings and returns an assoc list sorted by descending score.
+scoreMappings :: Dict -> [String] -> [Mapping] -> [(Mapping, Int)]
+scoreMappings dict tokens =
+  reverse . sortBy (comparing snd)
+  . map (\mapping -> (mapping, scoreMapping dict mapping tokens))
+
+-- finds maximum num mappings which have best scores for the given tokens.
+findBestMappings :: Dict -> Int -> [String] -> [Mapping]
+findBestMappings dict num tokens = let
+  mappings = (scoreMappings dict tokens)
              . S.toList
-             . foldl' (findMappingsForToken dict) S.empty
-             . reverse . sortBy (comparing length)
+             . foldl' (\mappings -> -- find num best num mappings
+                        S.fromList . take num
+                        . map fst . scoreMappings dict tokens . S.toList
+                        . findMappingsForToken dict mappings)
+                      S.empty
+             . nub . reverse . sortBy (comparing (\x -> (length x, x)))
              $ tokens
   maxScore = if not (null mappings) then snd . head $ mappings else 0
   in map fst . takeWhile ((== maxScore) . snd) $ mappings
@@ -76,11 +87,11 @@ findBestMappings dict tokens = let
 -- finds the merged mappings for a token
 findMappingsForToken :: Dict -> S.Set Mapping -> String  -> S.Set Mapping
 findMappingsForToken dict mappings token =
-  case find isJust . map (flip translateToken token)
+  case find (inDict dict) . mapMaybe (flip translateToken token)
        . reverse . sortBy (comparing M.size)
        . S.toList $ mappings of
     -- the token is already translatable. return current mappings.
-    Just _ -> mappings
+    Just dtoken -> trace (printf "Translated %s -> %s" token dtoken) $ mappings
 
     -- the token is not translatable yet. return current mappings merged
     -- with the mappings for the token.
@@ -94,8 +105,10 @@ mergeMappingLists mappings1 mappings2
   | otherwise =
       trace (printf "Merging %s x %s mappings" (show . S.size $ mappings1) (show . S.size $ mappings2)) $
         let
-          merged = S.fromList . catMaybes $
-            [mergeMappings m1 m2 | m1 <- S.toList mappings1, m2 <- S.toList mappings2]
+          merged = -- union current mappings and their merged result mappings
+            S.unions [mappings1, mappings2,
+              S.fromList . catMaybes $
+                [mergeMappings m1 m2 | m1 <- S.toList mappings1, m2 <- S.toList mappings2]]
         in trace (printf "Merged to %s mappings" (show $ S.size merged)) merged
 
 -- merges two mappings. returns Nothing if mappings conflict.
@@ -143,18 +156,20 @@ showMapping mapping =
 
 main :: IO()
 main = do
-  (dictFile : cryptTextFile : _) <- getArgs
+  (dictFile : cryptTextFile : num : _) <- getArgs
   -- read the dictionary
   !dict <- readDict dictFile
   -- read the encrypted tokens
   !tokens <- fmap (map (map toLower) . lines) $ readFile cryptTextFile
 
-  let mappings = findBestMappings dict tokens
+  let mappings = findBestMappings dict (read num) tokens
 
   if not (null mappings)
     then do
-      putStrLn $ show (length mappings) ++ " best mappings found with score " ++
-        show (scoreMapping dict (head mappings) tokens)
+      putStrLn $ printf "%s best mappings found with score %s/%s"
+        (show $ length mappings)
+        (show $ scoreMapping dict (head mappings) tokens)
+        (show $ length tokens)
       putStrLn . unlines $
         map (\mapping -> printf "%s -> %s"
               (showMapping mapping)
