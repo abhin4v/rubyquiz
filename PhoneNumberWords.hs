@@ -76,7 +76,7 @@ phoneNumberWords dict =
                . wordsForSplit dict)
   . splits
   where
-    isValid = not . any (all isDigit)  . sliding 2 1 . filter (/= '-')
+    isValid = not . any (all isDigit) . sliding 2 1 . filter (/= '-')
 
 main = do
   (dictFileName : _) <- getArgs
