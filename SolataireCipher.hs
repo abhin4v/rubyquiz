@@ -1,8 +1,11 @@
-module SolataireCipher where
+module Main where
 
+import qualified Options.Applicative as Op
 import Data.Char (toUpper, ord, chr)
 import Data.List (unfoldr, splitAt, sort, elemIndex)
 import Data.Maybe (fromJust)
+import Control.Applicative ((<*>))
+import Control.Monad ((>=>))
 
 data Card = RankCard Int | JokerA | JokerB deriving (Eq)
 
@@ -43,7 +46,7 @@ keyChar deck =
         deck'' = moveCard deck' (bJokerIdx deck') 2
 
         -- triple cut around the jokers
-        [i, j] = sort [(aJokerIdx deck''), (bJokerIdx deck'')]
+        [i, j] = sort [aJokerIdx deck'', bJokerIdx deck'']
         (top, rest) = splitAt i deck''
         (mid, bottom) = splitAt (j + 1 - i) rest
         cards' = bottom ++ mid ++ top
@@ -51,14 +54,14 @@ keyChar deck =
         -- count cut using the value of the bottom card
         c = cardValue (last cards')
         (top', bottom') = splitAt c cards'
-        cards'' = (init bottom') ++ top' ++ [last cards']
+        cards'' = init bottom' ++ top' ++ [last cards']
 
         -- output value
         cV = cardValue (cards'' !! (cardValue . head $ cards''))
     in
         if cV == 53
             then keyChar cards''
-            else (numToChar $ (if cV > 26 then cV - 26 else cV), cards'')
+            else (numToChar (if cV > 26 then cV - 26 else cV), cards'')
 
 moveCard :: [a] -> Int -> Int -> [a]
 moveCard lst idx move =
@@ -119,3 +122,26 @@ decrypt deck encText =
         ks = keyStream deck (length encText)
         encTextNums = charsToNums encText
         ksNums = charsToNums ks
+
+data Command = Encrypt String | Decrypt String
+
+optParser = Op.subparser $
+    Op.command "encrypt"
+        (Op.info
+            (Op.helper <*>
+                (Op.argument (Op.str >=> Just . Encrypt) (Op.metavar "CLEARTEXT")))
+            (Op.progDesc "Encrypts a cleartext"))
+    Op.& Op.command "decrypt"
+        (Op.info
+            (Op.helper <*>
+                (Op.argument (Op.str >=> Just . Decrypt) (Op.metavar "CRYPTTEXT")))
+            (Op.progDesc "Decrypts a crypttext"))
+
+opts = Op.info (Op.helper <*> optParser) $
+    Op.progDesc "Encrypt or decrypts a string using the solataire cipher algorithm"
+
+main = do
+    command <- Op.execParser opts
+    case command of
+        (Encrypt clearText) -> putStrLn $ encrypt serialDeck clearText
+        (Decrypt cryptText) -> putStrLn $ decrypt serialDeck cryptText

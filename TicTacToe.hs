@@ -10,7 +10,7 @@
 
 {-# LANGUAGE BangPatterns #-}
 
-module TicTacToe where
+module Main where
 
 import Data.List (sort, nub, maximumBy)
 import Data.List.Split (chunk)

@@ -15,7 +15,7 @@
 
 {-# LANGUAGE BangPatterns #-}
 
-module PhoneNumberWords where
+module Main where
 
 import qualified Data.Set as S
 import qualified Data.Map as M

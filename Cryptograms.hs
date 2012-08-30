@@ -8,7 +8,7 @@
 
 {-# LANGUAGE BangPatterns #-}
 
-module Cryptograms where
+module Main where
 
 import qualified Data.Map as M
 import qualified Data.Set as S

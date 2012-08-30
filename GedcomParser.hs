@@ -5,7 +5,7 @@
 
 {-# LANGUAGE NoMonomorphismRestriction, RecordWildCards #-}
 
-module GedcomParser where
+module Main where
 
 import Text.Parsec hiding (spaces, Line)
 import System.IO

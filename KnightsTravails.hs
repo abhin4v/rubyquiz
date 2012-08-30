@@ -20,7 +20,7 @@
 
 {-# LANGUAGE MultiParamTypeClasses, RecordWildCards #-}
 
-module KnightsTravails where
+module Main where
 
 import qualified Data.Set as S
 import AStar
