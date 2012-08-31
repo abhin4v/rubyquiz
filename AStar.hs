@@ -8,15 +8,10 @@ import qualified Data.Map as M
 import Data.List (foldl')
 import Data.Maybe (fromJust)
 
--- A node in the search
-class (Ord a, Ord b, Num b, Bounded b) => SearchNode a b where
-  -- get the next search node and the cost to reach to it from the current node
-  nextNode ::  a -> [(a, b)]
-
 -- A* algorithm: Find a path from initial node to goal node using a heuristic function.
 -- Returns Nothing if no path found. Else returns Just (path cost, path).
-astar :: SearchNode a b => a ->  a -> (a -> a -> b) -> Maybe (b, [a])
-astar initNode goalNode hueristic =
+astar :: (Ord a, Ord b, Num b) => a -> a -> (a -> [(a, b)]) -> (a -> a -> b) -> Maybe (b, [a])
+astar initNode goalNode nextNode hueristic =
   astar' (PQ.singleton (hueristic initNode goalNode) (initNode, 0))
          S.empty (M.singleton initNode 0) M.empty
   where
@@ -42,10 +37,12 @@ astar initNode goalNode hueristic =
 
         -- Find the successors (with their g and h costs) of the node
         -- which have not been seen yet
-        successors = filter (\(s, g, _) ->
-                                not (S.member s seen') &&
-                                  g < M.findWithDefault maxBound s gscore)
-                     $ successorsAndCosts node gcost
+        successors =
+          filter (\(s, g, _) ->
+                    not (S.member s seen') &&
+                      (not (s `M.member` gscore)
+                        || g < (fromJust . M.lookup s $ gscore)))
+         $ successorsAndCosts node gcost
 
         -- Insert the successors in the open set
         pq'' = foldl' (\q (s, g, h) -> PQ.insert (g + h) (s, g) q) pq' successors

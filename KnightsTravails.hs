@@ -50,25 +50,24 @@ isValidNotation notation =
        head notation `elem` ['a'..'h'],
        last notation `elem` ['1'..'8']]
 
--- Makes Board an instance of SearchNode for astar to work
-instance SearchNode Board Int where
-  -- Finds the next possible board configurations for one knight's move.
-  -- Move cost is one.
-  nextNode board@(Board {..}) =
-    zip
-      (map (\pos -> board { knightPos = pos })
-       . filter isValidMove
-       . map (\(x, y) -> (fst knightPos + x, snd knightPos + y))
-       $ moves)
-      (repeat 1)
-    where
-      moves = [(1,2), (1,-2), (-1,2), (-1,-2), (2,1), (2,-1), (-2,1), (-2,-1)]
-      isValidMove (x, y) =
-        and [x > 0, x < 9, y > 0, y < 9, not $ (x, y) `S.member` blockedSquares]
+-- Finds the next possible board configurations for one knight's move.
+-- Move cost is one.
+nextKnightPos board@(Board {..}) =
+  zip
+    (map (\pos -> board { knightPos = pos })
+     . filter isValidMove
+     . map (\(x, y) -> (fst knightPos + x, snd knightPos + y))
+     $ moves)
+    (repeat 1)
+  where
+    moves = [(1,2), (1,-2), (-1,2), (-1,-2), (2,1), (2,-1), (-2,1), (-2,-1)]
+    isValidMove (x, y) =
+      and [x > 0, x < 9, y > 0, y < 9, not $ (x, y) `S.member` blockedSquares]
 
 knightAstar heuristic blockedSquares start target =
   fmap (second (map knightPos))
-  $ astar (Board start blockedSquares) (Board target blockedSquares) heuristic
+  $ astar (Board start blockedSquares) (Board target blockedSquares)
+          nextKnightPos heuristic
 
 -- Finds a path from a start square to an end square using BFS
 bfsSearch :: S.Set Square -> Square -> Square -> Maybe (Int, [Square])
