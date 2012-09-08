@@ -5,20 +5,24 @@
 
   A solution to rubyquiz 11 (http://rubyquiz.com/quiz11.html).
 
+  Usage: ./TicTacToe board_size training_time
+
   Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net>
 -}
 
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns, RecordWildCards #-}
 
 module Main where
 
+import qualified Data.Map as M
+import Control.Monad.State (State, get, put, runState, evalState)
 import Data.List (sort, nub, maximumBy)
 import Data.List.Split (chunk)
 import Data.Ord (comparing)
-import System.Random (Random, StdGen, randomR, newStdGen, split)
+import System.Environment (getArgs)
 import System.IO (hSetBuffering, stdin, stdout, BufferMode(..))
-import Control.Monad.State (State, get, put, runState, evalState)
-import qualified Data.Map as M
+import System.Random (Random, StdGen, randomR, newStdGen, split)
+import Text.Printf (printf)
 
 -- Randomness setup
 
@@ -45,9 +49,9 @@ data Move = Nought | Cross deriving (Eq, Ord)
 
 data CellState = Filled Move | Empty deriving (Eq, Ord)
 
-data Cell = Cell {cellPos :: Int, cellState :: CellState} deriving (Eq, Ord)
+data Cell = Cell { cellPos :: Int, cellState :: CellState } deriving (Eq, Ord)
 
-type Board = [Cell]
+data Board = Board { boardSize :: Int, boardCells :: [Cell] } deriving (Eq, Ord)
 
 type Run = [Board]
 
@@ -73,50 +77,62 @@ otherResult Draw = Draw
 otherResult Loss = Win
 otherResult Win = Loss
 
-emptyBoard :: Board
-emptyBoard = map (flip Cell Empty) [0..8]
+emptyBoard :: Int -> Board
+emptyBoard boardSize =
+  Board boardSize $ map (flip Cell Empty) [0..(boardSize * boardSize - 1)]
 
 printBoard :: Board -> IO ()
-printBoard board = putStrLn "" >> (mapM_ print . chunk 3 $ board)
+printBoard Board{..} = putStrLn "" >> (mapM_ print . chunk boardSize $ boardCells)
 
 makeMove :: Int -> Move -> Board -> Board
-makeMove pos move board =
-  let (l, r) = splitAt pos board
-  in l ++ [Cell pos (Filled move)] ++ tail r
+makeMove pos move board@Board{..} =
+  let (l, r) = splitAt pos boardCells
+  in board { boardCells = l ++ [Cell pos (Filled move)] ++ tail r }
 
 diags :: Board -> [[Cell]]
-diags board =
-  [[board !! 0, board !! 4, board !! 8],
-   [board !! 2, board !! 4, board !! 6]]
+diags Board{..} =
+  [map (boardCells !!) . take boardSize . iterate (+ (boardSize + 1)) $ 0,
+   map (boardCells !!) . take boardSize . iterate (+ (boardSize - 1)) $ (boardSize - 1)]
 
 nextBoards :: Move -> Board -> [(Int, Board)]
-nextBoards move board =
+nextBoards move board@Board{..} =
   map ((\p -> (p, makeMove p move board)) . cellPos)
-  $ filter (\c -> cellState c == Empty) board
+  $ filter (\c -> cellState c == Empty) boardCells
 
 isWin :: Move -> Board -> Bool
 isWin move board =
-  or [any isStrike $ chunk 3 $ map cellState board,
-      any isStrike $ chunk 3 $ map cellState $ rotateBoard board,
-      any isStrike $ map (map cellState) $ diags board]
+  or [any isStrike . chunk size . map cellState . boardCells $ board,
+      any isStrike . chunk size . map cellState . boardCells . rotateBoard $ board,
+      any isStrike . map (map cellState) . diags $ board]
   where
-    isStrike = (== replicate 3 (Filled move))
+    size = boardSize board
+    isStrike = (== replicate size (Filled move))
 
 result :: Move -> Board -> Result
 result move board
-  | isWin move board                 = Win
-  | isWin (otherMove move) board     = Loss
-  | Empty `elem` map cellState board = Unfinished
-  | otherwise                        = Draw
+  | isWin move board                                  = Win
+  | isWin (otherMove move) board                      = Loss
+  | Empty `elem` (map cellState . boardCells $ board) = Unfinished
+  | otherwise                                         = Draw
 
 translateBoard :: [Int] -> Board -> Board
-translateBoard idxs board =
-  map (\(i, ri) -> Cell i $ cellState $ board !! ri) $ zip [0..8] idxs
+translateBoard idxs board@Board{..} =
+  board { boardCells =
+    map (\(i, ri) -> Cell i . cellState $ boardCells !! ri)
+    $ zip [0..(boardSize * boardSize - 1)] idxs }
 
 rotateBoard, xMirrorBoard, yMirrorBoard :: Board -> Board
-rotateBoard  = translateBoard [6,3,0,7,4,1,8,5,2]
-xMirrorBoard = translateBoard [2,1,0,5,4,3,8,7,6]
-yMirrorBoard = translateBoard [6,7,8,3,4,5,0,1,2]
+rotateBoard board@Board{..} =
+  translateBoard
+    (let xs = reverse . chunk boardSize $ [0..(boardSize *  boardSize - 1)]
+      in concatMap (\i -> map (!! i ) xs) [0..(boardSize - 1)])
+    board
+xMirrorBoard board@Board{..} =
+  translateBoard
+    (concatMap reverse . chunk boardSize $ [0..(boardSize * boardSize - 1)]) board
+yMirrorBoard board@Board{..} =
+  translateBoard
+    (concat . reverse . chunk boardSize $ [0..(boardSize * boardSize - 1)]) board
 
 rotateBoardN :: Board -> Int -> Board
 rotateBoardN board n = foldl (\b _ -> rotateBoard b) board [1..n]
@@ -129,27 +145,26 @@ class Player a where
   improvePlayer :: a -> Result -> Run -> a
 
 -- play a match between two players
-playMatch :: (Player p1, Player p2) => p1 -> p2 -> (Result, Run, p1, p2)
-playMatch player1 player2 = playMatch_ player1 player2 emptyBoard
-
-playMatch_ :: (Player p1, Player p2) => p1 -> p2 -> Board -> (Result, Run, p1, p2)
-playMatch_ player1 player2 board =
+playMatch :: (Player p1, Player p2) => p1 -> p2 -> Board -> (Result, Run, p1, p2)
+playMatch player1 player2 board =
   case result (playerMove player1) board of
     Unfinished -> let
       (player1', board') = play player1 board
       in case result (playerMove player1) board' of
         Unfinished -> let
-          (res', run, player2', player1'') = playMatch_ player2 player1' board'
+          (res', run, player2', player1'') = playMatch player2 player1' board'
           in (otherResult res', board' : run, player1'', player2')
         res -> (res, [], player1', player2)
     res -> (res, [], player1, player2)
 
 -- play multiple matches between two players
-playMatches :: (Player p1, Player p2) => Int -> p1 -> p2 -> ([(Result, Run)],p1, p2)
-playMatches times player1 player2 =
+playMatches :: (Player p1, Player p2) => Int -> Int -> p1 -> p2
+               -> ([(Result, Run)],p1, p2)
+playMatches boardSize times player1 player2 =
   foldl (\(matches, p1, p2) _ ->
     let
-      (res, run, p1', p2') = playMatch p1 p2
+      startBoard = emptyBoard boardSize
+      (res, run, p1', p2') = playMatch p1 p2 startBoard
       p1'' = improvePlayer p1' res run
       p2'' = improvePlayer p2' (otherResult res) run
     in  ((res, run) : matches, p1'', p2''))
@@ -180,7 +195,7 @@ eqvBoards :: Board -> [Board]
 eqvBoards board = nub . sort $
   board : map (rotateBoardN board) [1..3] ++ [xMirrorBoard board, yMirrorBoard board]
 
-data LearningPlayer = LearningPlayer Move Memory StdGen deriving (Show)
+data LearningPlayer = LearningPlayer Move Memory StdGen
 
 -- play using the strategy learned till now
 learningPlay :: LearningPlayer -> Board -> (LearningPlayer, Board)
@@ -230,30 +245,32 @@ instance Player LearningPlayer where
     LearningPlayer move (learnFromRun res run mem) gen
 
 -- play two LearningPlayers against each other to learn strategy
-learnedPlayer :: Move -> StdGen -> LearningPlayer
-learnedPlayer move gen = let
+learnedPlayer :: Int -> Int -> Move -> StdGen -> LearningPlayer
+learnedPlayer boardSize times move gen = let
   (gen1, gen2) = split gen
   p1 = LearningPlayer move M.empty gen1
   p2 = LearningPlayer (otherMove move) M.empty gen2
-  (_, p1', p2') = playMatches 1000 p1 p2
+  (_, p1', p2') = playMatches boardSize times p1 p2
   in p1'
 
 -- Play against human
 
 -- play a player against a human. human enters moves from prompt.
 playHuman :: Player p => p -> Board -> IO ()
-playHuman player board = do
+playHuman player board@Board{..} = do
   printBoard board
+  let boardArea = boardSize * boardSize
   case result (playerMove player) board of
     Unfinished -> do
-      putStr "Move? "
+      putStr $ printf "Move %s? [1-%s] "
+                      (show . otherMove . playerMove $ player) (show boardArea)
       pos <- fmap (decr . read) getLine
-      if pos < 0 || pos > 8
+      if pos < 0 || pos > (boardArea - 1)
       then do
         putStrLn "Invalid Move"
         playHuman player board
       else
-        case cellState (board !! pos) of
+        case cellState (boardCells !! pos) of
           Filled _ -> do
             putStrLn "Invalid Move"
             playHuman player board
@@ -271,19 +288,21 @@ playHuman player board = do
 
 main :: IO ()
 main = do
+  (boardSize : times : _) <- fmap (map read) getArgs
   hSetBuffering stdin LineBuffering
   hSetBuffering stdout NoBuffering
   gen <- newStdGen
   putStrLn "Learning ..."
-  let !player = learnedPlayer Cross gen
+  let !player = learnedPlayer boardSize times Cross gen
   putStrLn "Learned"
   putStrLn "Tossing for first move"
   let t = evalState toss gen
+  let startBoard = emptyBoard boardSize
   if t
   then do
     putStrLn "You win toss"
-    playHuman player emptyBoard
+    playHuman player startBoard
   else do
     putStrLn "You lose toss"
-    let (player', board) = play player emptyBoard
+    let (player', board) = play player startBoard
     playHuman player' board
