@@ -1,5 +1,6 @@
 *.hi
 *.o
+*.bak
 input
 bin
 dist

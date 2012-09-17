@@ -60,3 +60,14 @@ executable SolataireCipher
                       optparse-applicative == 0.1.*
   main-is           : SolataireCipher.hs
   default-language  : Haskell2010
+
+executable BarrelOfMonkeys
+  build-depends     : base == 4.*,
+                      containers == 0.4.*,
+                      hxt == 9.2.*,
+                      pqueue == 1.2.*,
+                      fingertree-psqueue == 0.3.*,
+                      text == 0.11.*,
+                      optparse-applicative == 0.1.*
+  main-is           : BarrelOfMonkeys.hs
+  default-language  : Haskell2010
