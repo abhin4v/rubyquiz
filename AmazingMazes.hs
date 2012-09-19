@@ -1,13 +1,16 @@
 {-
   A solution to rubyquiz 31 (http://rubyquiz.com/quiz31.html).
 
-  Generate a rectangular maze given the width and height. The maze should be
-  solvable for any start and end position and there should be one possible
-  solution a given pair of start and end positions.
+  Generate a rectangular maze given its width and height. The maze should be
+  solvable for any start and end positions and there should be only one possible
+  solution for any pair of start and end positions.
 
-  Generate an ASCII output representing the maze.
+  Generate the ASCII output representing the maze.
 
-  Given the maze produced, find the solution. Produce ASCII output to visualize the solution.
+  Find the solution of the maze. Produce ASCII output to visualize the solution.
+
+  The maze generation algorithm used is recursive backtracking and the maze
+  solution algorithm used is A*.
 
   Usage: ./AmazingMazes <width> <height> <start_x> <start_y> <end_x> <end_y>
           Coordinates are zero based.
@@ -75,14 +78,14 @@ nextCells width height (x, y) =
   . map (\(xd, yd) -> (x + xd, y + yd))
   $ [(0,-1), (1,0), (0,1), (-1,0)]
 
--- generate a random maze given the start cell and empty maze
+-- generate a random maze given the start cell and an empty maze
 generateMaze_ :: Cell -> Maze -> RandomState Maze
 generateMaze_ start maze@(Maze width height cellMap) = do
   !next <- randomShuffle . filter (not . flip M.member cellMap) $ nextCells width height start
   if null next
     then return $ Maze width height (M.insertWith' (++) start [] cellMap)
     else
-      foldM (\mz@(Maze _ _ m) n -> (M.keys m) `seq`
+      foldM (\mz@(Maze _ _ m) n -> M.keys m `seq`
               if not . M.member n $ m
                 then generateMaze_ n
                       (Maze width height
@@ -90,7 +93,7 @@ generateMaze_ start maze@(Maze width height cellMap) = do
                 else return mz)
             maze next
 
--- generate a random maze given the maze width and height
+-- generate a random maze given the maze width and height using recursive backtracking
 generateMaze :: Int -> Int -> RandomState Maze
 generateMaze width height = do
   x <- getRandomR (0, width - 1)
@@ -130,7 +133,8 @@ renderMazeCell (Maze _ _ cellMap) (MazeSolution start end solution) rowIx colIx 
 -- symbols to mark the solution path
 marks = M.fromList [((0,-1), "↑"), ((1,0), "→"), ((0,1), "↓"), ((-1,0), "←")]
 
--- solve the maze using astar give the maze and the start and end cells
+-- solve the maze using A* given the maze and the start and end cells using
+-- Manhattan distance as the heuristic
 solveMaze :: Maze -> Cell -> Cell -> MazeSolution
 solveMaze maze@(Maze _ _ cellMap) start end =
   MazeSolution start end
@@ -139,7 +143,7 @@ solveMaze maze@(Maze _ _ cellMap) start end =
   . filter ((== 2) . length)
   . sliding 2 1
   . fromMaybe [] . fmap snd
-  . astar start end (map ((,1)) . fromMaybe [] . flip M.lookup cellMap)
+  . astar start end (map (,1) . fromMaybe [] . flip M.lookup cellMap)
   $ (\(x, y) (x', y') -> abs (x - x') + abs (y - y'))
 
 main = do
