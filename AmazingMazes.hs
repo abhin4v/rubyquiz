@@ -15,6 +15,29 @@
   Usage: ./AmazingMazes <width> <height> <start_x> <start_y> <end_x> <end_y>
           Coordinates are zero based.
 
+  abhinav@xj9:rubyquiz# bin/AmazingMazes 10 10 0 0 9 9
+  +---+---+---+---+---+---+---+---+---+---+
+  | s   >   v         |           |       |
+  +---+---+   +---+   +   +---+   +   +---+
+  | v   <   < |       |       |   |   |   |
+  +   +---+---+---+---+---+   +   +   +   +
+  | v                 |       |       |   |
+  +   +---+---+---+   +   +---+---+---+   +
+  | >   >   >   v |   |   |         >   v |
+  +---+---+---+   +   +   +---+---+   +   +
+  |       | v   < |       | >   >   ^ | v |
+  +   +   +   +---+---+---+   +---+---+   +
+  |   |   | >   >   >   >   ^ |       | v |
+  +   +---+---+---+---+---+---+   +---+   +
+  |   |       |               | v   <   < |
+  +   +   +   +   +   +   +---+   +---+---+
+  |   |   |       |   |   | v   < |       |
+  +   +   +---+---+   +---+   +---+   +---+
+  |       |       |   | v   < |           |
+  +   +---+   +   +   +   +---+---+---+   +
+  |           |   |     >   >   >   >   e |
+  +---+---+---+---+---+---+---+---+---+---+
+
   Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net>
 -}
 
@@ -131,7 +154,7 @@ renderMazeCell (Maze _ _ cellMap) (MazeSolution start end solution) rowIx colIx 
                       Just (x', y') -> fromMaybe " " $ M.lookup (x' - x, y' - y) marks
 
 -- symbols to mark the solution path
-marks = M.fromList [((0,-1), "↑"), ((1,0), "→"), ((0,1), "↓"), ((-1,0), "←")]
+marks = M.fromList [((0,-1), "^"), ((1,0), ">"), ((0,1), "v"), ((-1,0), "<")]
 
 -- solve the maze using A* given the maze and the start and end cells using
 -- Manhattan distance as the heuristic
