@@ -4,3 +4,4 @@
 input
 bin
 dist
+*.sublime-workspace

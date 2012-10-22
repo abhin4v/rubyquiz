@@ -17,7 +17,7 @@ module Main where
 import qualified Data.Map as M
 import Control.Monad.State (State, get, put, runState, evalState)
 import Data.List (sort, nub, maximumBy)
-import Data.List.Split (chunk)
+import Data.List.Split (chunksOf)
 import Data.Ord (comparing)
 import System.Environment (getArgs)
 import System.IO (hSetBuffering, stdin, stdout, BufferMode(..))
@@ -82,7 +82,7 @@ emptyBoard boardSize =
   Board boardSize $ map (flip Cell Empty) [0..(boardSize * boardSize - 1)]
 
 printBoard :: Board -> IO ()
-printBoard Board{..} = putStrLn "" >> (mapM_ print . chunk boardSize $ boardCells)
+printBoard Board{..} = putStrLn "" >> (mapM_ print . chunksOf boardSize $ boardCells)
 
 makeMove :: Int -> Move -> Board -> Board
 makeMove pos move board@Board{..} =
@@ -101,8 +101,8 @@ nextBoards move board@Board{..} =
 
 isWin :: Move -> Board -> Bool
 isWin move board =
-  or [any isStrike . chunk size . map cellState . boardCells $ board,
-      any isStrike . chunk size . map cellState . boardCells . rotateBoard $ board,
+  or [any isStrike . chunksOf size . map cellState . boardCells $ board,
+      any isStrike . chunksOf size . map cellState . boardCells . rotateBoard $ board,
       any isStrike . map (map cellState) . diags $ board]
   where
     size = boardSize board
@@ -124,15 +124,15 @@ translateBoard idxs board@Board{..} =
 rotateBoard, xMirrorBoard, yMirrorBoard :: Board -> Board
 rotateBoard board@Board{..} =
   translateBoard
-    (let xs = reverse . chunk boardSize $ [0..(boardSize *  boardSize - 1)]
+    (let xs = reverse . chunksOf boardSize $ [0..(boardSize *  boardSize - 1)]
       in concatMap (\i -> map (!! i ) xs) [0..(boardSize - 1)])
     board
 xMirrorBoard board@Board{..} =
   translateBoard
-    (concatMap reverse . chunk boardSize $ [0..(boardSize * boardSize - 1)]) board
+    (concatMap reverse . chunksOf boardSize $ [0..(boardSize * boardSize - 1)]) board
 yMirrorBoard board@Board{..} =
   translateBoard
-    (concat . reverse . chunk boardSize $ [0..(boardSize * boardSize - 1)]) board
+    (concat . reverse . chunksOf boardSize $ [0..(boardSize * boardSize - 1)]) board
 
 rotateBoardN :: Board -> Int -> Board
 rotateBoardN board n = foldl (\b _ -> rotateBoard b) board [1..n]

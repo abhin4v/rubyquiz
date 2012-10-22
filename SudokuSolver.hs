@@ -1,130 +1,125 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns, RecordWildCards #-}
 
 module Main where
 
-import qualified Data.Array as A
 import qualified Data.Map as M
 import qualified Data.Set as S
+import Control.Concurrent (forkIO)
 import Control.Monad (foldM, forM_)
 import Data.Char (digitToInt, intToDigit)
-import Data.List (foldl', intersperse, (\\), sortBy, groupBy)
-import Data.List.Split (splitEvery)
+import Data.List (foldl', intersperse, intercalate, (\\))
+import Data.List.Split (chunksOf)
 import Data.Maybe (fromJust)
-import Data.Ord (comparing)
 import System.CPUTime (getCPUTime)
 import Text.Printf (printf)
 
-countingSortBy f lo hi =
-  concatMap snd
-  . A.assocs . A.accumArray (\ e a -> a : e) [] (lo, hi) . map (\i -> (f i, i))
+data Cell = Cell {-# UNPACK #-} !Int
+                 ![Int]
+                 {-# UNPACK #-} !Int
+                 deriving (Eq)
 
-data Cell = Cell !Int ![Int] deriving (Eq, Ord)
-type Board = M.Map Int Cell
+data Board = Board { ixMap :: !(M.Map Int Cell),
+                     ambCells :: !(S.Set Cell)
+                   } deriving (Eq, Ord, Show)
 
 instance Show Cell where
-  show cell@(Cell ix val) = "<" ++ show ix ++ " " ++ show val ++ ">"
+  show (Cell ix val _) = "<" ++ show ix ++ " " ++ show val ++ ">"
 
+instance Ord Cell where
+  (Cell i1 v1 vl1) `compare` (Cell i2 v2 vl2)
+    | i1 == i2 && v1 == v2 = EQ
+    | otherwise            = (vl1, i1) `compare`(vl2, i2)
+
+emptyBoard :: Board
 emptyBoard =
-  foldl' (\m i -> M.insert i (Cell i [1..9]) m) M.empty [0..80]
+  Board (foldl' (\m c@(Cell i _ _) -> M.insert i c m) M.empty cells)
+        (S.fromList cells)
+  where cells = map (\i -> Cell i [1..9] 9) [0..80]
 
-constrainCell cell@(Cell ix val) board c@(Cell i pos) =
+updateBoard :: Board -> Cell -> Board
+updateBoard board@Board{..} cell@(Cell ix _ vl) = case M.lookup ix ixMap of
+  Nothing      -> board
+  Just oldCell | vl == 1   -> Board (M.insert ix cell ixMap)
+                                    (S.delete oldCell ambCells)
+               | otherwise -> Board (M.insert ix cell ixMap)
+                                    (S.insert cell (S.delete oldCell ambCells))
+
+constrainCell :: Cell -> Board -> Cell -> Maybe Board
+constrainCell cell@(Cell _ val vl) board@Board{..} c@(Cell i pos pl) =
   case () of _
-              | c == cell                          -> return board
-              | null pos' && length val == 1       -> Nothing
-              | null pos'                          -> return board
-              | length pos' == 1 && length pos > 1 -> constrainBoard board (Cell i pos')
-              | otherwise                          -> return $ M.insert i (Cell i pos') board
-  where pos' = pos \\ val
-
-constrainCells :: Cell -> S.Set Cell -> Board -> [Cell] -> Maybe Board
-constrainCells cell@(Cell ix val) seen board unit = do
-  board' <- foldM (constrainCell cell) board unit
-  let unit' = map (\(Cell ix _) -> fromJust $ M.lookup ix board') $ unit
-
-  foldM (\board'' cell' ->
-            constrainCells cell' (S.insert cell' seen) board'' unit')
-        board' (dups unit')
+              | c == cell            -> return board
+              | null pos' && vl == 1 -> Nothing
+              | null pos'            -> return board
+              | pl' == 1 && pl > 1   -> constrainBoard board (Cell i pos' pl')
+              | otherwise            -> return $ updateBoard board (Cell i pos' pl')
   where
-    dups = filter (not . flip S.member seen) . map head
-           . filter (\xs@(Cell _ v : _) -> length xs == length v)
-           . groupBy (\(Cell _ v1) (Cell _ v2) -> v1 == v2)
-           . sortBy (comparing (\(Cell _ val) -> val))
-           . filter (\(Cell _ v) -> length v > 1 && length v < 4)
+    pos' = pos \\ val
+    pl' = length pos'
+
+constrainCells :: Cell -> Board -> [Cell] -> Maybe Board
+constrainCells cell = foldM (constrainCell cell)
 
 constrainBoard :: Board -> Cell -> Maybe Board
-constrainBoard board cell@(Cell ix _) =
-  foldM (\board'' unitf ->
-            constrainCells cell (S.singleton cell) board'' (unitf cell board''))
-        (M.insert ix cell board) [row, column, box]
+constrainBoard board cell@(Cell ix _ _) =
+  foldM (\board'' unitf -> constrainCells cell board'' (unitf board''))
+        (updateBoard board cell) [row, column, box]
   where
     (rowIx, colIx) = ix `divMod` 9
     (rowIx', colIx') = ((rowIx `div` 3) * 3, (colIx `div` 3) * 3)
 
-    cells board = map (fromJust . flip M.lookup board)
-    row (Cell ix _) board = cells board $ take 9 [rowIx * 9 ..]
-    column (Cell ix _) board = cells board $ take 9 [colIx, colIx + 9 ..]
-    box (Cell ix _) board =
+    cells board = map (fromJust . flip M.lookup (ixMap board))
+    row board = cells board $ take 9 [rowIx * 9 ..]
+    column board = cells board $ take 9 [colIx, colIx + 9 ..]
+    box board =
       cells board [r * 9 + c | r <- [rowIx' .. rowIx' + 2], c <- [colIx' .. colIx' + 2]]
 
 readBoard :: String -> Maybe Board
 readBoard str =
   foldM constrainBoard emptyBoard
-  . map (\(ix, n) -> Cell ix [digitToInt n])
+  . map (\(ix, n) -> Cell ix [digitToInt n] 1)
   . filter ((/= '.') . snd)
   . zip [0..] $ str
 
 showBoard :: Board -> String
 showBoard board =
-  zipWith (\(Cell _ val) dot ->
-              if length val == 1 then intToDigit (head val) else dot)
-          (map snd . M.toList $ board)
+  zipWith (\(Cell _ val vl) dot -> if vl == 1 then intToDigit (head val) else dot)
+          (map snd . M.toList . ixMap $ board)
           (repeat '.')
 
 printBoard :: Board -> IO ()
 printBoard board =
   putStrLn
   . (\t -> line ++ "\n" ++ t ++ line ++ "\n")
-  . unlines . concat . intersperse [line] . splitEvery 3
-  . map ((\r -> "| " ++ r ++ " |") . concat
-         . intersperse " | " . map (intersperse ' ') . splitEvery 3)
-  . splitEvery 9
+  . unlines . intercalate [line] . chunksOf 3
+  . map ((\r -> "| " ++ r ++ " |")
+         . intercalate " | " . map (intersperse ' ') . chunksOf 3)
+  . chunksOf 9
   . showBoard $ board
   where line = "+-------+-------+-------+"
 
 solveSudoku :: Board -> Maybe Board
-solveSudoku = fst . flip solve S.empty
+solveSudoku board
+  | isSolved board          = Just board
+  | S.null (ambCells board) = Nothing
+  | null val                = solveSudoku (board { ambCells = cs })
+  | otherwise               = let
+      nextPos = Cell ix [head val] 1
+      restPos = Cell ix (tail val) (vl - 1)
+      boardR = updateBoard board restPos
+      in case constrainBoard board nextPos of
+           Nothing -> solveSudoku boardR
+           Just board' | isSolved board' -> Just board'
+                       | otherwise       -> case solveSudoku board' of
+                           Just board''  -> Just board''
+                           Nothing       -> solveSudoku boardR
   where
-    solve board invalid = go (cells board) board invalid
+    ((Cell ix val vl), cs) = S.deleteFindMin (ambCells board)
+    isSolved = all (\(Cell _ _ vl) -> vl == 1) . M.elems . ixMap
 
-    cells board =
-    -- countingSortBy (\(Cell _ val) -> length val) 2 9
-      sortBy (comparing (\(Cell _ val) -> length val))
-      . filter (\(Cell _ val) -> length val /= 1)
-      . map snd . M.toList $ board
-
-    isSolved = all (\(Cell _ val) -> length val == 1) . M.elems
-
-    go [] board invalid = (Nothing, S.insert board invalid)
-    go (Cell ix val : cs) board invalid
-      | S.member board invalid = (Nothing, invalid)
-      | null val               = go cs board (S.insert board invalid)
-      | otherwise              = let
-          nextPos = Cell ix [head val]
-          restPos = Cell ix (tail val)
-          board' = M.insert ix nextPos board
-          in case constrainBoard board nextPos of
-               Nothing -> go (restPos : cs) board (S.insert board' invalid)
-               Just board'' | isSolved board'' -> (Just board'', invalid)
-                            | otherwise        -> let
-                                (mBoard', invalid') = solve board'' invalid
-                                in case mBoard' of
-                                     Just board''' -> (Just board''', invalid')
-                                     Nothing       ->
-                                       go (restPos : cs) board (S.insert board'' invalid')
-
+main :: IO ()
 main = do
   lns <- fmap lines getContents
-  forM_ lns $ \line -> do
+  forM_ lns $ \line -> forkIO $ do
     start <- getCPUTime
     let sudoku = readBoard line
     case sudoku of
@@ -132,13 +127,7 @@ main = do
       Just board -> do
         let !res = solveSudoku board
         end <- getCPUTime
-        let diff = (fromIntegral (end - start)) / (10^12)
+        let diff = fromIntegral (end - start) / (10 ^ 12)
 
-        putStrLn (printf "%s -> %s [%0.3f sec]" line (maybe "Unsolvable" showBoard res) (diff :: Double))
-
-        --putStrLn (printf "Time taken: %0.3f sec" (diff :: Double))
-        --printBoard board
-
-        --case res of
-        --  Nothing -> putStrLn "Unsolvable"
-        --  Just board' -> printBoard board'
+        putStrLn (printf "%s -> %s [%0.3f sec]" line
+                 (maybe "Unsolvable" showBoard res) (diff :: Double))
