@@ -59,8 +59,8 @@ instance Show Cell where
 instance Ord Cell where
   (Cell i1 v1 vl1) `compare` (Cell i2 v2 vl2) =
     if i1 == i2 && v1 == v2
-    then EQ
-    else (vl1, i1) `compare`(vl2, i2)
+      then EQ
+      else (vl1, i1) `compare`(vl2, i2)
 
 -- Gets the index of the lowest bit set as 1.
 firstSol :: Word16 -> Int
@@ -76,7 +76,7 @@ emptyBoard =
 -- Updates the given cell in the board.
 updateBoard :: Board -> Cell -> Board
 updateBoard board@Board{..} cell@(Cell ix _ vl) = case M.lookup ix ixMap of
-  Nothing      -> board
+  Nothing                        -> board
   Just oldCell | oldCell == cell -> board
                | vl == 1         -> Board (M.insert ix cell ixMap)
                                           (S.delete oldCell ambCells)
@@ -87,13 +87,12 @@ updateBoard board@Board{..} cell@(Cell ix _ vl) = case M.lookup ix ixMap of
 -- another cell (first argument) in the given board.
 -- If there is a conflict in the values of the cells, returns Nothing.
 constrainCell :: Cell -> Board -> Cell -> Maybe Board
-constrainCell cell@(Cell _ val vl) board@Board{..} c@(Cell i pos pl) =
-  case () of _
-              | c == cell            -> return board
-              | pos' == 0 && vl == 1 -> Nothing
-              | pos' == 0            -> return board
-              | pl' == 1 && pl > 1   -> constrainBoard board (Cell i pos' pl')
-              | otherwise            -> return $ updateBoard board (Cell i pos' pl')
+constrainCell cell@(Cell _ val vl) board@Board{..} c@(Cell i pos pl)
+  | c == cell            = return board
+  | pos' == 0 && vl == 1 = Nothing
+  | pos' == 0            = return board
+  | pl' == 1 && pl > 1   = constrainBoard board (Cell i pos' pl')
+  | otherwise            = return $ updateBoard board (Cell i pos' pl')
   where
     pos' = pos .&. complement val
     pl' = popCount pos'
@@ -109,7 +108,7 @@ constrainCells cell = foldM (constrainCell cell)
 -- one cell where a unit is a row, cell or a 3x3 box.
 constrainBoard :: Board -> Cell -> Maybe Board
 constrainBoard board cell@(Cell ix _ _) =
-  foldM (\board'' unitf -> constrainCells cell board'' (unitf board''))
+  foldM (\board' unitf -> constrainCells cell board' (unitf board'))
         (updateBoard board cell) [row, column, box]
   where
     (rowIx, colIx) = ix `divMod` 9
@@ -174,7 +173,7 @@ solveSudoku board
       -- try to constrain with the current cell with only one value
       in case constrainBoard board nextPos of
            -- if failed, continue with the current cell with the rest values
-           Nothing -> solveSudoku boardR
+           Nothing                       -> solveSudoku boardR
                          -- if solved, return the board
            Just board' | isSolved board' -> Just board'
                          -- else try to recursively solve the board further
@@ -198,13 +197,13 @@ main = do
   chunks <- fmap (chunksOf 10 . lines) getContents
 
   -- spawn a thread for each chunk
-  threads <- forM chunks $ \chunk -> do
-    done <- newEmptyMVar
+  solutionsVs <- forM chunks $ \chunk -> do
+    solutionsV <- newEmptyMVar
     forkIO $ do
-      -- for each line in the chunk, read it as a Sudoku board and solve it.
+      -- for each line in the chunk, read it as a Sudoku board and solve it
       -- return solution as a string represented by showBoard if solvable else "Unsolvable"
-      -- return an error if invalid board.
-      sols <- forM chunk $ \line -> do
+      -- return an error if invalid board
+      solutions <- forM chunk $ \line -> do
         start <- getCPUTime
         let sudoku = readBoard line
         case sudoku of
@@ -216,8 +215,8 @@ main = do
 
             return $ printf "%s -> %s [%0.3f ms]" line
                        (maybe "Unsolvable" showBoard res) diff
-      putMVar done sols
-    return done
+      putMVar solutionsV solutions
+    return solutionsV
 
-  -- wait for all thread to finish and print the solutions (or errors).
-  forM_ threads $ takeMVar >=> mapM_ putStrLn
+  -- wait for all thread to finish and print the solutions (or errors)
+  forM_ solutionsVs $ takeMVar >=> mapM_ putStrLn
