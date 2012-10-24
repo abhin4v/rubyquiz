@@ -1,20 +1,22 @@
 {-# LANGUAGE BangPatterns, RecordWildCards #-}
 
-module Main where
+module Main (main) where
 
 import qualified Data.Set as S
 import qualified Data.HashMap.Strict as M
 import Control.Concurrent (forkIO, newEmptyMVar, putMVar, takeMVar)
-import Control.Monad (foldM, forM_, forM)
+import Control.Monad (foldM, forM_, forM, (>=>))
+import Data.Bits (testBit, (.&.), complement, popCount, bit)
 import Data.Char (digitToInt, intToDigit)
-import Data.List (foldl', intersperse, intercalate, (\\))
+import Data.List (foldl', intersperse, intercalate, find)
 import Data.List.Split (chunksOf)
 import Data.Maybe (fromJust)
+import Data.Word (Word16)
 import System.CPUTime (getCPUTime)
 import Text.Printf (printf)
 
 data Cell = Cell {-# UNPACK #-} !Int
-                 ![Int]
+                 {-# UNPACK #-} !Word16
                  {-# UNPACK #-} !Int
 
 data Board = Board { ixMap :: !(M.HashMap Int Cell),
@@ -34,11 +36,14 @@ instance Ord Cell where
     then EQ
     else (vl1, i1) `compare`(vl2, i2)
 
+firstSol :: Word16 -> Int
+firstSol val = fromJust . find (testBit val) $ [1..9]
+
 emptyBoard :: Board
 emptyBoard =
   Board (foldl' (\m c@(Cell i _ _) -> M.insert i c m) M.empty cells)
         (S.fromList cells)
-  where cells = map (\i -> Cell i [1..9] 9) [0..80]
+  where cells = map (\i -> Cell i 1022 9) [0..80]
 
 updateBoard :: Board -> Cell -> Board
 updateBoard board@Board{..} cell@(Cell ix _ vl) = case M.lookup ix ixMap of
@@ -53,22 +58,13 @@ constrainCell :: Cell -> Board -> Cell -> Maybe Board
 constrainCell cell@(Cell _ val vl) board@Board{..} c@(Cell i pos pl) =
   case () of _
               | c == cell            -> return board
-              | null pos' && vl == 1 -> Nothing
-              | null pos'            -> return board
+              | pos' == 0 && vl == 1 -> Nothing
+              | pos' == 0            -> return board
               | pl' == 1 && pl > 1   -> constrainBoard board (Cell i pos' pl')
               | otherwise            -> return $ updateBoard board (Cell i pos' pl')
   where
-    pos' = diff pos val
-    pl' = length pos'
-
-    diff :: [Int] -> [Int] -> [Int]
-    diff [] [] = []
-    diff xs [] = xs
-    diff [] _  = []
-    diff xa@(x:xs) ya@(y:ys)
-      | x == y = diff xs ys
-      | x < y  = x : diff xs ya
-      | x > y  = diff xa ys
+    pos' = pos .&. complement val
+    pl' = popCount pos'
 
 constrainCells :: Cell -> Board -> [Cell] -> Maybe Board
 constrainCells cell = foldM (constrainCell cell)
@@ -90,13 +86,14 @@ constrainBoard board cell@(Cell ix _ _) =
 readBoard :: String -> Maybe Board
 readBoard str =
   foldM constrainBoard emptyBoard
-  . map (\(ix, n) -> Cell ix [digitToInt n] 1)
+  . map (\(ix, n) -> Cell ix (bit $ digitToInt n) 1)
   . filter ((/= '.') . snd)
   . zip [0..] $ str
 
 showBoard :: Board -> String
 showBoard board =
-  zipWith (\(Cell _ val vl) dot -> if vl == 1 then intToDigit (head val) else dot)
+  zipWith (\(Cell _ val vl) dot ->
+              if vl == 1 then intToDigit . firstSol $ val else dot)
           (M.elems . ixMap $ board)
           (repeat '.')
 
@@ -115,10 +112,11 @@ solveSudoku :: Board -> Maybe Board
 solveSudoku board
   | isSolved board          = Just board
   | S.null (ambCells board) = Nothing
-  | null val                = solveSudoku (board { ambCells = cs })
+  | val == 0                = solveSudoku $ board { ambCells = cs }
   | otherwise               = let
-      nextPos = Cell ix [head val] 1
-      restPos = Cell ix (tail val) (vl - 1)
+      fs = bit . firstSol $ val
+      nextPos = Cell ix fs 1
+      restPos = Cell ix (val .&. complement fs) (vl - 1)
       boardR = updateBoard board restPos
       in case constrainBoard board nextPos of
            Nothing -> solveSudoku boardR
@@ -132,23 +130,23 @@ solveSudoku board
 
 main :: IO ()
 main = do
-  chunks <- fmap (chunksOf 50 . lines) getContents
+  chunks <- fmap (chunksOf 10 . lines) getContents
   threads <- forM chunks $ \chunk -> do
-              done <- newEmptyMVar
-              forkIO $ do
-                forM_ chunk $ \line -> do
-                  start <- getCPUTime
-                  let sudoku = readBoard line
-                  case sudoku of
-                    Nothing -> putStrLn ("Invalid input sudoku: " ++ line)
-                    Just board -> do
-                      let !res = solveSudoku board
-                      end <- getCPUTime
-                      let diff = fromIntegral (end - start) / (10 ^ 9)
+    done <- newEmptyMVar
+    forkIO $ do
+      sols <- forM chunk $ \line -> do
+        start <- getCPUTime
+        let sudoku = readBoard line
+        case sudoku of
+          Nothing -> return $ "Invalid input sudoku: " ++ line
+          Just board -> do
+            let !res = solveSudoku board
+            end <- getCPUTime
+            let diff = fromIntegral (end - start) / (10 ^ 9) :: Double
 
-                      putStrLn (printf "%s -> %s [%0.3f ms]" line
-                               (maybe "Unsolvable" showBoard res) (diff :: Double))
-                putMVar done ()
-              return done
+            return $ printf "%s -> %s [%0.3f ms]" line
+                       (maybe "Unsolvable" showBoard res) diff
+      putMVar done sols
+    return done
 
-  mapM_ takeMVar threads
+  forM_ threads $ takeMVar >=> mapM_ putStrLn
