@@ -30,9 +30,10 @@ import Control.Concurrent (forkIO, newEmptyMVar, putMVar, takeMVar)
 import Control.Monad (foldM, forM_, forM, (>=>))
 import Data.Bits (testBit, (.&.), complement, popCount, bit)
 import Data.Char (digitToInt, intToDigit, isDigit)
-import Data.List (foldl', intersperse, intercalate, find)
+import Data.List (foldl', intersperse, intercalate, find, sortBy)
 import Data.List.Split (chunksOf)
 import Data.Maybe (fromJust)
+import Data.Ord (comparing)
 import Data.Word (Word16)
 import System.CPUTime (getCPUTime)
 import Text.Printf (printf)
@@ -65,6 +66,26 @@ instance Ord Cell where
 -- Gets the index of the lowest bit set as 1.
 firstSol :: Word16 -> Int
 firstSol val = fromJust . find (testBit val) $ [1..9]
+
+cells :: Board -> [Int] -> [Cell]
+cells board = map (fromJust . flip M.lookup (ixMap board))
+
+rowIxs, columnIxs, boxIxs, unitIxs :: [[Int]]
+rowIxs = chunksOf 9 [0..80]
+columnIxs = map (\i -> take 9 [i, i + 9 ..]) [0..8]
+boxIxs = concatMap (\(x:y:z:_) -> zipWith3 (\a b c -> a ++ b ++ c) x y z)
+        . chunksOf 3 . map (chunksOf 3) $ rowIxs
+unitIxs = rowIxs ++ columnIxs ++ boxIxs
+
+-- Checks if a Sudoku board is solved.
+-- A board is solved if all the cells have only one possible value and all rows,
+-- columns and boxes follow the rule of Sudoku.
+isBoardSolved :: Board -> Bool
+isBoardSolved board =
+  (all (\(Cell _ _ vl) -> vl == 1) . M.elems . ixMap $ board)
+  && all (isUnitSolved . cells board) unitIxs
+  where
+    isUnitSolved unit = S.size (S.fromList unit) == 9
 
 -- An empty Sudoku board where all cells have all possible values.
 emptyBoard :: Board
@@ -114,7 +135,6 @@ constrainBoard board cell@(Cell ix _ _) =
     (rowIx, colIx) = ix `divMod` 9
     (rowIx', colIx') = ((rowIx `div` 3) * 3, (colIx `div` 3) * 3)
 
-    cells board = map (fromJust . flip M.lookup (ixMap board))
     row board = cells board $ take 9 [rowIx * 9 ..]
     column board = cells board $ take 9 [colIx, colIx + 9 ..]
     box board =
@@ -138,7 +158,7 @@ showBoard :: Board -> String
 showBoard board =
   zipWith (\(Cell _ val vl) dot ->
               if vl == 1 then intToDigit . firstSol $ val else dot)
-          (M.elems . ixMap $ board)
+          (map snd . sortBy (comparing fst) . M.toList . ixMap $ board)
           (repeat '.')
 
 -- Pretty prints a Sudoku board.
@@ -157,7 +177,7 @@ printBoard board =
 solveSudoku :: Board -> Maybe Board
 solveSudoku board
     -- if solved, return the board
-  | isSolved board          = Just board
+  | isBoardSolved board     = Just board
     -- if no more unsolved cells left then return Nothing
   | S.null (ambCells board) = Nothing
     -- if the current cell has no possible values, solve with rest cells
@@ -175,20 +195,17 @@ solveSudoku board
            -- if failed, continue with the current cell with the rest values
            Nothing                       -> solveSudoku boardR
                          -- if solved, return the board
-           Just board' | isSolved board' -> Just board'
+           Just board' | isBoardSolved board' -> Just board'
                          -- else try to recursively solve the board further
-                       | otherwise       -> case solveSudoku board' of
+                       | otherwise            -> case solveSudoku board' of
                            -- if solved, return the board
-                           Just board''  -> Just board''
+                           Just board''       -> Just board''
                            -- else try to solve the board with the current cell
                            -- with the rest values
-                           Nothing       -> solveSudoku boardR
+                           Nothing            -> solveSudoku boardR
   where
     -- Finds the cell which has fewest possible values.
     (Cell ix val vl, cs) = S.deleteFindMin (ambCells board)
-
-    -- A Sudoku is solved if all the cells have only one possible value.
-    isSolved = all (\(Cell _ _ vl) -> vl == 1) . M.elems . ixMap
 
 -- Reads the puzzles from stdin and solves them
 main :: IO ()
