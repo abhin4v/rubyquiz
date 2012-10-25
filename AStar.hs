@@ -1,3 +1,5 @@
+{- Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net> -}
+
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module AStar where
