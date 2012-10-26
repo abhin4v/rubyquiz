@@ -75,18 +75,20 @@ spaced = (<* spaces)
 -- A parser to parse the integer literals
 literal = (Lit . read) <$> spaced (many1 digit)
 
--- A parse to parse a factor, where a factor is either a literal or an expression
--- enclosed in brackets
+-- A parser to parse a unary operator followed by a factor
+unaryOpFactor = spaced (char 'd') *> (Rol <$> factor)
+
+-- A parse to parse a factor, where a factor is either a literal or
+-- a factor preceded by an unary operator or an expression enclosed in brackets
 factor  = spaced (char '(') *> spaced expr <* spaced (char ')')
+          <|> unaryOpFactor
           <|> literal
 
 -- Operators table in descending order of precedence
-table = [[uop 'd' Rol],                                  -- single roll
-         [bop 'd' MRol AssocLeft],                       -- multiple rolls
+table = [[bop 'd' MRol AssocLeft],                       -- multiple rolls
          [bop '*' Mul AssocLeft, bop '/' Div AssocLeft], -- multiplication and division
          [bop '+' Add AssocLeft, bop '-' Sub AssocLeft]] -- addition and subtraction
   where bop c f = Infix (spaced (char c) *> return f)    -- binary operators
-        uop c f = Prefix (spaced (char c) *> return f)   -- unary operators
 
 -- A parser to parse the full expression
 expr = buildExpressionParser table factor
