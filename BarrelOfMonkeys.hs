@@ -1,7 +1,16 @@
-{-
-  A solution to rubyquiz 30 (http://rubyquiz.com/quiz30.html).
+{-|
+ A solution to rubyquiz 30 (http://rubyquiz.com/quiz30.html).
 
-  Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net>
+ /A "Barrel of Monkeys" playlist is when the next song in the playlist begins/
+ /with the same letter as the current song ended in./
+
+ /Given any starting and ending song, create a playlist that connects the two songs./
+ /Create playlists of specific durations and shortest and longest playlists by/
+ /the number of songs and the total duration./
+
+ /The song data is available at/ <http://rubyquiz.com/SongLibrary.xml.gz>.
+
+ Copyright 2012 Abhinav Sarkar \<abhinav\@abhinavsarkar.net\>
 -}
 
 {-# LANGUAGE Arrows, NoMonomorphismRestriction, RecordWildCards #-}
@@ -30,11 +39,12 @@ import Text.XML.HXT.Core hiding ((:->), when)
 
 --- types ---
 
+-- | A song with all the fields
 data Song = Song {
-             songArtist :: T.Text,
-             songId :: Int,
-             songName :: T.Text,
-             songDuration :: Int
+             songArtist :: T.Text, -- ^ The song artist
+             songId :: Int,        -- ^ The song ID
+             songName :: T.Text,   -- ^ The song name
+             songDuration :: Int   -- ^ The song duration in milliseconds
             }
 
 instance Eq Song where
@@ -47,13 +57,18 @@ instance Show Song where
   show (Song {..}) = printf "%s. %s - %s (%sms)"
     (show songId) (T.unpack songArtist) (T.unpack songName) (show songDuration)
 
+-- | The whole song library
 data SongLibrary = SongLibrary {
                      songIdMap :: M.Map Int Song,
                      fstCharMap :: M.Map Char [Song],
                      lstCharMap :: M.Map Char [Song]
                    }
 
-data Playlist = Playlist { playlistSongs :: [Song], playlistDuration :: Int }
+-- | A playlist of songs
+data Playlist = Playlist {
+                  playlistSongs :: [Song], -- ^ The songs in the playlist
+                  playlistDuration :: Int  -- ^ The total duration of the playlist in milliseconds
+                }
 
 --- XML parsing ---
 
@@ -72,6 +87,7 @@ getSongs = atTag "Artist" >>>
     songs <- listA getSong -< a
     returnA -< map (uncurry3 $ Song sArtist) songs
 
+-- | Reads the song library from the XML file given its path
 getSongsFromXml :: FilePath -> IO SongLibrary
 getSongsFromXml file =
   fmap (uncurry3 SongLibrary
@@ -104,8 +120,13 @@ playlist library nextSong startId endId = do
   let pl = concatMap snd . maybeToList . astar start end nextSong $ (\_ _ -> 0)
   return $ Playlist pl (playlistTime pl)
 
+-- | Creates the shortest and longest playlist by the number of song and
+-- the shortest and longest playlist by the length of the playlist
 shortestPlaylist, longestPlaylist, shortestTimePlaylist, longestTimePlaylist
-  :: SongLibrary -> Int -> Int -> Maybe Playlist
+  :: SongLibrary       -- ^ The song library
+     -> Int            -- ^ The start song ID
+     -> Int            -- ^ The end song ID
+     -> Maybe Playlist -- ^ (@Just@ resultant playlist) if it exists else @Nothing@
 
 shortestPlaylist library =
   playlist library (\song -> map (\s -> (s, 1)) . nextSongs song $ library)
@@ -156,7 +177,16 @@ playlistTimes library startId endId = let
                       (distances, queue') prev
                in loop distances' queue''
 
-timedPlaylist :: SongLibrary -> Int -> Int -> Int -> Int -> Maybe Playlist
+-- | Creates a playlist with its duration as close a possible to the given duration
+timedPlaylist ::
+  SongLibrary       -- ^ The song library
+  -> Int            -- ^ The required duration in milliseconds
+  -> Int            -- ^ The start song ID
+  -> Int            -- ^ The end song ID
+  -> Int            -- ^ Maximum number of child nodes to consider while
+                    -- traversing the graph to create the playlist. Used for
+                    -- tuning the runtime of the function
+  -> Maybe Playlist -- ^ (@Just@ resultant playlist) if it exists else @Nothing@
 timedPlaylist library time startId endId maxChild =
   fst $ timedPlaylist_ library time startId endId S.empty M.empty
                        (playlistTimes library startId endId) maxChild

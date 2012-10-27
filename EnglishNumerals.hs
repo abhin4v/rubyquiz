@@ -1,10 +1,12 @@
-{-
-  A solution to rubyquiz 25 (http://rubyquiz.com/quiz25.html).
+{-|
+  A solution to rubyquiz 25 (<http://rubyquiz.com/quiz25.html>).
 
-  When the integers 1 to 10_000_000_000 are written in the English language,
-  then sorted as strings, which odd number appears first in the list?
+  /When the integers 1 to 10_000_000_000 are written in the English language,/
+  /then sorted as strings, which odd number appears first in the list?/
 
-  Usage: ./EnglishNumerals basis-file max_num
+  Usage:
+
+  > ./EnglishNumerals <basis_file> <max_num>
 
   Example basis file for English numerals:
 
@@ -43,7 +45,7 @@
   > 2, two
   > 1, one
 
-  Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net>
+  Copyright 2012 Abhinav Sarkar \<abhinav\@abhinavsarkar.net\>
 -}
 
 module EnglishNumerals (Basis, readBasis, toEnglishNumerals, firstOddByEnglishNumeral, main)
@@ -56,12 +58,13 @@ import Data.Maybe (fromMaybe)
 import Data.List.Split (splitOn)
 import System.Environment (getArgs)
 
+-- | A basis is a list of basic numeral translations into a languages.
 type Basis = [(Integer, String)]
 
 isPowerOfTen :: Integer -> Bool
 isPowerOfTen = (== "10") . nub . show
 
--- reads the basis of the numeral system
+-- | Reads the basis of the numeral system
 readBasis :: FilePath -> IO Basis
 readBasis =
   fmap (map (\line -> let (n:en:_) = splitOn "," line in (read n, en)) . lines) . readFile
@@ -74,7 +77,7 @@ toEnglishNumeralsMemo basis n =
     then cache basis `Seq.index` (fromIntegral n -1)
     else toEnglishNumerals basis n
 
--- converts a number to its numeral representation in the given basis
+-- | Converts a number to its numeral representation in the given basis
 toEnglishNumerals :: Basis -> Integer -> String
 toEnglishNumerals basis n =
   unwords . words . go n (dropWhile ((> n) . fst) basis) $ ""
@@ -102,8 +105,8 @@ minEnglish basis start end step =
   maximumBy (flip $ comparing fst)
   . map (\x -> (toEnglishNumerals basis x, x)) $ [start, start + step .. end]
 
--- finds the first odd number and its representation between 1 and n which is
--- minimum by the lexicographically sorted representations
+-- | Finds the first odd number and its representation between 1 and the given number
+-- which is minimum by the lexicographically sorted representations
 firstOddByEnglishNumeral :: Basis -> Integer -> (String, Integer)
 firstOddByEnglishNumeral basis n =
   (\(eng, en) -> (unwords . words $ eng, en))

@@ -1,7 +1,10 @@
--- A GEDCOM to XML converter written using Parsec as a
--- solution for rubyquiz 6 (http://rubyquiz.com/quiz6.html).
+-- | A GEDCOM to XML converter written using Parsec as a
+-- solution for rubyquiz 6 (<http://rubyquiz.com/quiz6.html>).
+--
 -- Example GEDCOM document at
--- http://cpansearch.perl.org/src/PJCJ/Gedcom-1.16/royal.ged
+-- <http://cpansearch.perl.org/src/PJCJ/Gedcom-1.16/royal.ged>
+--
+-- Copyright 2012 Abhinav Sarkar \<abhinav\@abhinavsarkar.net\>
 
 {-# LANGUAGE NoMonomorphismRestriction, RecordWildCards, FlexibleContexts #-}
 
@@ -18,7 +21,7 @@ data Line = Line {
                 lineId :: Maybe String
             }
 
--- an element in a GEDCOM document
+-- | An element in a GEDCOM document
 data Elem = Elem {
                 elemTag :: String,
                 elemValue :: Maybe String,
@@ -26,6 +29,7 @@ data Elem = Elem {
                 elemChildren :: [Elem]
             } deriving (Show)
 
+-- | A GEDCOM document
 type Doc = [Elem]
 
 indent n = concat . replicate n $ "  "
@@ -61,7 +65,7 @@ element level = do
             children <- many (element $ level + 1)
             return $ Elem lineTag lineValue lineId children
 
--- parses a document
+-- | Parser to parse a GEDCOM document from a 'String'
 document :: Stream s m Char => ParsecT s u m Doc
 document = element 0 `endBy` whitespaces
 
@@ -98,14 +102,14 @@ elemToXml indentation Elem{..} =
             ++ unlines (map (elemToXml (indentation + 1)) elemChildren)
             ++ indent indentation ++ "</" ++ elemTag ++ ">"
 
--- converts a document to XML
+-- | Converts a GEDCOM document to XML
 documentToXml :: Doc -> String
 documentToXml doc = "<DOCUMENT>\n"
     ++ (unlines . map (elemToXml 1) $ doc')
     ++ "</DOCUMENT>"
     where doc' = normalizeDoc doc
 
--- converts a GEDCOM document supplied through STDIN into XML
+-- | Converts a GEDCOM document supplied through STDIN into XML
 -- and prints to STDOUT
 main = do
     text <- getContents

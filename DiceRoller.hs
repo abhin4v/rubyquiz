@@ -1,22 +1,24 @@
-{-
-  A solution to rubyquiz 61 (http://rubyquiz.com/quiz61.html).
+{-|
+  A solution to rubyquiz 61 (<http://rubyquiz.com/quiz61.html>).
 
-  The task for this Quiz is to write a dice roller. The program should take
-  two arguments: a dice expression followed by the number of times to roll it
-  (being optional, with a default of 1).
+  /The task for this Quiz is to write a dice roller. The program should take/
+  /two arguments: a dice expression followed by the number of times to roll it/
+  /(being optional, with a default of 1)./
 
-  The solution is done using Parsec for parsing the expression into an AST and
+  The solution is done using 'Parsec' for parsing the expression into an AST and
   then evaluating it recursively.
 
-  Usage: bin/DiceRoller "(5d5-4)d(16/d4)+3" 10
-         bin/DiceRoller 3d3
+  Usage:
 
-  Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net>
+  > bin/DiceRoller "(5d5-4)d(16/d4)+3" 10
+  > bin/DiceRoller 3d3
+
+  Copyright 2012 Abhinav Sarkar \<abhinav\@abhinavsarkar.net\>
 -}
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module DiceRoller (RandomState, Expr(..), eval, expr, main) where
+module DiceRoller (Expr(..), eval, expr, main) where
 
 import Control.Applicative ((<$>), (<*), (*>), (<|>))
 import Control.Monad (foldM, liftM2, liftM, when)
@@ -28,9 +30,7 @@ import System.Environment (getArgs)
 
 -- Randomness setup for dice roll --
 
-type RandomState = State StdGen
-
-getRandomR :: Random a => (a, a) -> RandomState a
+getRandomR :: Random a => (a, a) -> State StdGen a
 getRandomR limits = do
   gen <- get
   let (val, gen') = randomR limits gen
@@ -39,18 +39,19 @@ getRandomR limits = do
 
 -- AST --
 
--- Expression AST types
-data Expr = Lit Int       | -- An integer literal
-            Add Expr Expr | -- Binary addition
-            Sub Expr Expr | -- Binary subtraction
-            Mul Expr Expr | -- Binary multiplication
-            Div Expr Expr | -- Binary integer division
-            Rol Expr      | -- Unary single dice roll
-            MRol Expr Expr  -- Binary multiple dice rolls
+-- | Expression AST types
+data Expr = Lit Int       | -- ^ An integer literal
+            Add Expr Expr | -- ^ Binary addition
+            Sub Expr Expr | -- ^ Binary subtraction
+            Mul Expr Expr | -- ^ Binary multiplication
+            Div Expr Expr | -- ^ Binary integer division
+            Rol Expr      | -- ^ Unary single dice roll
+            MRol Expr Expr  -- ^ Binary multiple dice rolls
             deriving (Show)
 
--- Recursively evaluates the AST to get its value
-eval :: Expr -> RandomState Int
+-- | Recursively evaluates the AST to its value inside a 'State' monad with
+-- a random generator
+eval :: Expr -> State StdGen Int
 eval (Lit i)            = return i
 eval (Add e1 e2)        = liftM2 (+) (eval e1) (eval e2)
 eval (Sub e1 e2)        = liftM2 (-) (eval e1) (eval e2)
@@ -90,12 +91,12 @@ table = [[bop 'd' MRol AssocLeft],                       -- multiple rolls
          [bop '+' Add AssocLeft, bop '-' Sub AssocLeft]] -- addition and subtraction
   where bop c f = Infix (spaced (char c) *> return f)    -- binary operators
 
--- A parser to parse the full expression
+-- | A parser to parse the dice roll expression
 expr = buildExpressionParser table factor
 
 -- Main --
 
--- Reads the expression from program arguments, parses it and if successful,
+-- | Reads the expression from program arguments, parses it and if successful,
 -- evaluates the AST and displays the resultant values
 main = do
   args <- getArgs

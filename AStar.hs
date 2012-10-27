@@ -10,9 +10,15 @@ import qualified Data.Map as M
 import Data.List (foldl')
 import Data.Maybe (fromJust)
 
--- A* algorithm: Find a path from initial node to goal node using a heuristic function.
--- Returns Nothing if no path found. Else returns Just (path cost, path).
-astar :: (Ord a, Ord b, Num b) => a -> a -> (a -> [(a, b)]) -> (a -> a -> b) -> Maybe (b, [a])
+-- | A* algorithm: Finds a path from initial node to goal node using a heuristic function.
+astar :: (Ord a, Ord b, Num b) =>
+         a                  -- ^ The start node
+         -> a               -- ^ The goal node
+         -> (a -> [(a, b)]) -- ^ The function to get the next nodes and their
+                            -- costs from a given node
+         -> (a -> a -> b)   -- ^ The heuristic function to estimate the cost of
+                            -- going from a give node to the target node
+         -> Maybe (b, [a])  -- ^ Nothing if no path found. Else @Just (path cost, path)@
 astar initNode goalNode nextNode hueristic =
   astar' (PQ.singleton (hueristic initNode goalNode) (initNode, 0))
          S.empty (M.singleton initNode 0) M.empty
