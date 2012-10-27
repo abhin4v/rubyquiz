@@ -2,7 +2,7 @@
 
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module AStar where
+module AStar (astar) where
 
 import qualified Data.PQueue.Prio.Min as PQ
 import qualified Data.Set as S

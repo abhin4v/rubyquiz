@@ -12,7 +12,10 @@
 
 {-# LANGUAGE BangPatterns, RecordWildCards #-}
 
-module Main where
+module TicTacToe (Move(..), CellState(..), Cell(..), Board(..), Run, Result(..),
+                  Player(..), playMatch,  playMatches, RandomPlayer(..),
+                  LearningPlayer, learnedPlayer, playHuman, main)
+where
 
 import qualified Data.Map as M
 import Control.Monad.State (State, get, put, runState, evalState)

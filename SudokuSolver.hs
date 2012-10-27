@@ -22,7 +22,10 @@
 
 {-# LANGUAGE BangPatterns, RecordWildCards #-}
 
-module Main (main) where
+module SudokuSolver (Cell(..), Board, emptyBoard, boardCells, cellValues,
+                     isBoardSolved, readBoard, showBoard, prettyShowBoard,
+                     solveSudoku, main)
+where
 
 import qualified Data.Set as S
 import qualified Data.HashMap.Strict as M
@@ -48,20 +51,26 @@ data Cell = Cell {-# UNPACK #-} !Int
 -- ambCells is the set of cells which have not been solved yet.
 data Board = Board { ixMap :: !(M.HashMap Int Cell),
                      ambCells :: !(S.Set Cell)
-                   } deriving (Eq, Show)
+                   } deriving (Eq)
 
 instance Eq Cell where
   {-# INLINE (==) #-}
   (Cell i1 v1 _) == (Cell i2 v2 _) = i1 == i2 && v1 == v2
 
 instance Show Cell where
-  show (Cell ix val _) = "<" ++ show ix ++ " " ++ show val ++ ">"
+  show cell@(Cell ix val _) = "<" ++ show ix ++ " " ++ show (cellValues cell) ++ ">"
 
 instance Ord Cell where
   (Cell i1 v1 vl1) `compare` (Cell i2 v2 vl2) =
     if i1 == i2 && v1 == v2
       then EQ
       else (vl1, i1) `compare`(vl2, i2)
+
+cellValues :: Cell -> [Int]
+cellValues (Cell _ val _) = filter (testBit val) [1..9]
+
+boardCells :: Board -> [Cell]
+boardCells = map snd . sortBy (comparing fst) . M.toList . ixMap
 
 -- Gets the index of the lowest bit set as 1.
 firstSol :: Word16 -> Int
@@ -158,14 +167,13 @@ showBoard :: Board -> String
 showBoard board =
   zipWith (\(Cell _ val vl) dot ->
               if vl == 1 then intToDigit . firstSol $ val else dot)
-          (map snd . sortBy (comparing fst) . M.toList . ixMap $ board)
+          (boardCells board)
           (repeat '.')
 
 -- Pretty prints a Sudoku board.
-printBoard :: Board -> IO ()
-printBoard board =
-  putStrLn
-  . (\t -> line ++ "\n" ++ t ++ line ++ "\n")
+prettyShowBoard :: Board -> String
+prettyShowBoard board =
+  (\t -> line ++ "\n" ++ t ++ line ++ "\n")
   . unlines . intercalate [line] . chunksOf 3
   . map ((\r -> "| " ++ r ++ " |")
          . intercalate " | " . map (intersperse ' ') . chunksOf 3)

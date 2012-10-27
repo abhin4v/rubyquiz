@@ -1,4 +1,4 @@
-name:           RubyQuiz
+name:           rubyquiz
 version:        1.0
 synopsis:       Solutions to RubyQuiz problems in Haskell
 homepage:       https://github.com/abhin4v/rubyquiz
@@ -13,6 +13,25 @@ source-repository head
     type:     git
     location: git@github.com:abhin4v/rubyquiz.git
 
+library
+  exposed-modules   : AStar, TicTacToe, KnightsTravails, Cryptograms, EnglishNumerals,
+                      GedcomParser, PhoneNumberWords, SolataireCipher,
+                      BarrelOfMonkeys, AmazingMazes, SudokuSolver, NumericMaze,
+                      DiceRoller
+  build-depends     : base == 4.*,
+                      containers == 0.4.*,
+                      mtl == 2.1.*,
+                      random == 1.0.*,
+                      split == 0.2.1.*,
+                      pqueue == 1.2.*,
+                      parsec == 3.1.*,
+                      optparse-applicative == 0.1.*,
+                      hxt == 9.2.*,
+                      fingertree-psqueue == 0.3.*,
+                      text == 0.11.*,
+                      unordered-containers == 0.2.1.*
+  default-language  : Haskell2010
+
 executable TicTacToe
   build-depends     : base == 4.*,
                       containers == 0.4.*,
@@ -20,6 +39,7 @@ executable TicTacToe
                       random == 1.0.*,
                       split == 0.2.1.*
   main-is           : TicTacToe.hs
+  ghc-options       : -main-is TicTacToe
   default-language  : Haskell2010
 
 executable KnightsTravails
@@ -27,12 +47,14 @@ executable KnightsTravails
                       containers == 0.4.*,
                       pqueue == 1.2.*
   main-is           : KnightsTravails.hs
+  ghc-options       : -main-is KnightsTravails
   default-language  : Haskell2010
 
 executable Cryptograms
   build-depends     : base == 4.*,
                       containers == 0.4.*
   main-is           : Cryptograms.hs
+  ghc-options       : -main-is Cryptograms
   default-language  : Haskell2010
 
 executable EnglishNumerals
@@ -40,24 +62,28 @@ executable EnglishNumerals
                       containers == 0.4.*,
                       split == 0.2.1.*
   main-is           : EnglishNumerals.hs
+  ghc-options       : -main-is EnglishNumerals
   default-language  : Haskell2010
 
 executable GedcomParser
   build-depends     : base == 4.*,
                       parsec == 3.1.*
   main-is           : GedcomParser.hs
+  ghc-options       : -main-is GedcomParser
   default-language  : Haskell2010
 
 executable PhoneNumberWords
   build-depends     : base == 4.*,
                       containers == 0.4.*
   main-is           : PhoneNumberWords.hs
+  ghc-options       : -main-is PhoneNumberWords
   default-language  : Haskell2010
 
 executable SolataireCipher
   build-depends     : base == 4.*,
                       optparse-applicative == 0.1.*
   main-is           : SolataireCipher.hs
+  ghc-options       : -main-is SolataireCipher
   default-language  : Haskell2010
 
 executable BarrelOfMonkeys
@@ -69,6 +95,7 @@ executable BarrelOfMonkeys
                       text == 0.11.*,
                       optparse-applicative == 0.1.*
   main-is           : BarrelOfMonkeys.hs
+  ghc-options       : -main-is BarrelOfMonkeys
   default-language  : Haskell2010
 
 executable AmazingMazes
@@ -78,6 +105,7 @@ executable AmazingMazes
                       random == 1.0.*,
                       pqueue == 1.2.*
   main-is           : AmazingMazes.hs
+  ghc-options       : -main-is AmazingMazes
   default-language  : Haskell2010
 
 executable SudokuSolver
@@ -87,7 +115,7 @@ executable SudokuSolver
                       split == 0.2.1.*,
                       unordered-containers == 0.2.1.*
   main-is           : SudokuSolver.hs
-  ghc-options       : -threaded -rtsopts
+  ghc-options       : -threaded -rtsopts -main-is SudokuSolver
   default-language  : Haskell2010
 
 executable NumericMaze
@@ -95,6 +123,7 @@ executable NumericMaze
                       containers == 0.4.*,
                       pqueue == 1.2.*
   main-is           : NumericMaze.hs
+  ghc-options       : -main-is NumericMaze
   default-language  : Haskell2010
 
 executable DiceRoller
@@ -103,4 +132,5 @@ executable DiceRoller
                       random == 1.0.*,
                       parsec == 3.1.*
   main-is           : DiceRoller.hs
+  ghc-options       : -main-is DiceRoller
   default-language  : Haskell2010

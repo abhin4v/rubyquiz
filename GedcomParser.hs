@@ -3,9 +3,9 @@
 -- Example GEDCOM document at
 -- http://cpansearch.perl.org/src/PJCJ/Gedcom-1.16/royal.ged
 
-{-# LANGUAGE NoMonomorphismRestriction, RecordWildCards #-}
+{-# LANGUAGE NoMonomorphismRestriction, RecordWildCards, FlexibleContexts #-}
 
-module Main where
+module GedcomParser (Elem(..), Doc, document, documentToXml, main) where
 
 import Text.Parsec hiding (spaces, Line)
 import System.IO
@@ -16,7 +16,7 @@ data Line = Line {
                 lineTag :: String,
                 lineValue :: Maybe String,
                 lineId :: Maybe String
-            } deriving (Show)
+            }
 
 -- an element in a GEDCOM document
 data Elem = Elem {
@@ -25,6 +25,8 @@ data Elem = Elem {
                 elemId :: Maybe String,
                 elemChildren :: [Elem]
             } deriving (Show)
+
+type Doc = [Elem]
 
 indent n = concat . replicate n $ "  "
 
@@ -60,6 +62,7 @@ element level = do
             return $ Elem lineTag lineValue lineId children
 
 -- parses a document
+document :: Stream s m Char => ParsecT s u m Doc
 document = element 0 `endBy` whitespaces
 
 -- normalizes an element by merging values of CONC and CONT
@@ -96,9 +99,11 @@ elemToXml indentation Elem{..} =
             ++ indent indentation ++ "</" ++ elemTag ++ ">"
 
 -- converts a document to XML
+documentToXml :: Doc -> String
 documentToXml doc = "<DOCUMENT>\n"
-    ++ (unlines . map (elemToXml 1) $ doc)
+    ++ (unlines . map (elemToXml 1) $ doc')
     ++ "</DOCUMENT>"
+    where doc' = normalizeDoc doc
 
 -- converts a GEDCOM document supplied through STDIN into XML
 -- and prints to STDOUT
@@ -106,5 +111,5 @@ main = do
     text <- getContents
     case parse document "GEDCOM Parser" text of
         Right []  -> return ()
-        Right doc -> putStrLn $ documentToXml (normalizeDoc doc)
+        Right doc -> putStrLn $ documentToXml doc
         Left e    -> print e

@@ -16,7 +16,7 @@
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Main (main) where
+module DiceRoller (RandomState, Expr(..), eval, expr, main) where
 
 import Control.Applicative ((<$>), (<*), (*>), (<|>))
 import Control.Monad (foldM, liftM2, liftM, when)

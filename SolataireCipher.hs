@@ -1,4 +1,4 @@
-module Main where
+module SolataireCipher (Card(..), Deck, encrypt, decrypt, main) where
 
 import qualified Options.Applicative as Op
 import Data.Char (toUpper, ord, chr)

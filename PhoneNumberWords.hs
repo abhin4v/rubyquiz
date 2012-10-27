@@ -15,7 +15,7 @@
 
 {-# LANGUAGE BangPatterns #-}
 
-module Main where
+module PhoneNumberWords(Dict, readDict, phoneNumberWords, main) where
 
 import qualified Data.Set as S
 import qualified Data.Map as M
@@ -24,7 +24,7 @@ import Data.List (foldl', sort, intercalate)
 import Data.Maybe (fromMaybe)
 import System.Environment (getArgs)
 
-type Dict = M.Map String (S.Set String)
+newtype Dict = Dict (M.Map String (S.Set String))
 
 -- reads the dictionary from the given file. must contain one word per line.
 readDict :: FilePath -> IO Dict
@@ -33,7 +33,7 @@ readDict filePath = do
                       . filter ((> 2) . length)
                       . map (map toUpper) . lines)
                   $ readFile filePath
-  return $
+  return . Dict $
     foldl' (\dict w -> M.insertWith S.union (translate w) (S.singleton w) dict)
           M.empty dictWords
 
@@ -69,7 +69,7 @@ wordsForSplit dict =
   map (\k -> S.toList . fromMaybe (S.singleton k) . M.lookup k $ dict)
 
 -- find all phone number words for a phone number
-phoneNumberWords dict =
+phoneNumberWords (Dict dict) =
   filter isValid . sort
   . concatMap (map (drop 1)
                . foldl (\acc ws -> [a ++ "-" ++ w | a <- acc, w <- ws]) [[]]

@@ -20,7 +20,9 @@
 
 {-# LANGUAGE MultiParamTypeClasses, RecordWildCards #-}
 
-module Main where
+module KnightsTravails (Square, Board(..), fromNotation, toNotation, isValidNotation,
+                        bfsSearch, astarSearch, main)
+where
 
 import qualified Data.Set as S
 import AStar

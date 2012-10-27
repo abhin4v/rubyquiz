@@ -43,7 +43,9 @@
 
 {-# LANGUAGE BangPatterns, TupleSections #-}
 
-module Main where
+module AmazingMazes (Cell(..), Maze(..), MazeSolution(..),
+                     generateMaze, renderMaze, solveMaze, main)
+where
 
 import qualified Data.Map as M
 import AStar
@@ -89,7 +91,7 @@ randomShuffle list = do
 type Cell = (Int, Int)
 
 -- a maze with width, height and a map of cell paths
-data Maze = Maze Int Int (M.Map Cell [Cell]) deriving (Show)
+data Maze = Maze Int Int (M.Map Cell [Cell])
 
 -- a solution to a maze with the start and end cells and the path map
 data MazeSolution = MazeSolution Cell Cell (M.Map Cell Cell)

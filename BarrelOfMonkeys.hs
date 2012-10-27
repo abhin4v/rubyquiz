@@ -6,7 +6,11 @@
 
 {-# LANGUAGE Arrows, NoMonomorphismRestriction, RecordWildCards #-}
 
-module Main where
+module BarrelOfMonkeys
+  (Song(..), SongLibrary, Playlist(..), getSongsFromXml,
+   shortestPlaylist, longestPlaylist, shortestTimePlaylist, longestTimePlaylist,
+   timedPlaylist, main)
+where
 
 import qualified Data.Map as M
 import qualified Data.FingerTree.PSQueue as Q
@@ -47,10 +51,9 @@ data SongLibrary = SongLibrary {
                      songIdMap :: M.Map Int Song,
                      fstCharMap :: M.Map Char [Song],
                      lstCharMap :: M.Map Char [Song]
-                   } deriving (Show)
+                   }
 
 data Playlist = Playlist { playlistSongs :: [Song], playlistDuration :: Int }
-                deriving (Show)
 
 --- XML parsing ---
 

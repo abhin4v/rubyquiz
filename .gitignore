@@ -5,4 +5,5 @@
 input
 bin
 dist
+lib
 *.sublime-workspace

@@ -16,7 +16,7 @@
  Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net>
 -}
 
-module Main (main) where
+module NumericMaze (solve, main) where
 
 import AStar
 import Control.Monad (when)

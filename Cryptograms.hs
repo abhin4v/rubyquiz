@@ -8,7 +8,9 @@
 
 {-# LANGUAGE BangPatterns #-}
 
-module Main where
+module Cryptograms (Mapping, Dict, readDict, translateToken,
+                    scoreMapping, findBestMappings, showMapping, main)
+where
 
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -26,14 +28,14 @@ trace _ x = x
 
 type Mapping = M.Map Char Char
 
-type Dict = M.Map Int (S.Set String)
+newtype Dict = Dict (M.Map Int (S.Set String))
 
 -- reads the dictionary from the given file. must contain one word per line.
 readDict :: FilePath -> IO Dict
 readDict filePath = do
   !dictWords <- fmap (filter (all isAlpha) . map (map toLower) . lines)
                   $ readFile filePath
-  return $
+  return . Dict $
     foldl' (\dict w -> M.insertWith S.union (length w) (S.singleton w) dict)
           M.empty dictWords
 
@@ -52,7 +54,7 @@ translateTokens mapping =
 
 -- checks if the given word is in the dictionary.
 inDict :: Dict -> String -> Bool
-inDict dict word =
+inDict (Dict dict) word =
   case M.lookup (length word) dict of
     Nothing -> False
     Just ws -> word `S.member` ws
@@ -123,7 +125,7 @@ mergeMappings mapping1 mapping2 =
 
 -- creates mappings for a token by finding words of same form from the dictionary.
 createMappingsForToken :: Dict -> String -> S.Set Mapping
-createMappingsForToken dict token =
+createMappingsForToken (Dict dict) token =
   case M.lookup (length token) dict of
     Nothing -> S.empty
     Just words -> let

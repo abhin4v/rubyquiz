@@ -46,7 +46,8 @@
   Copyright 2012 Abhinav Sarkar <abhinav@abhinavsarkar.net>
 -}
 
-module Main where
+module EnglishNumerals (Basis, readBasis, toEnglishNumerals, firstOddByEnglishNumeral, main)
+where
 
 import qualified Data.Sequence as Seq
 import Data.List (maximumBy, nub)
