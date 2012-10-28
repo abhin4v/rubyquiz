@@ -3,7 +3,7 @@
 	[
 		{
 			"path": "/home/abhinav/projects/rubyquiz",
-			"folder_exclude_patterns": ["bin", "dist"],
+			"folder_exclude_patterns": ["bin", "dist", "lib", "share"],
 			"file_exclude_patterns": ["*.hi", "*.o"]
 		}
 	]

@@ -30,6 +30,7 @@ where
 import qualified Data.Set as S
 import qualified Data.HashMap.Strict as M
 import Control.Concurrent (forkIO, newEmptyMVar, putMVar, takeMVar)
+import Control.Concurrent.Chan (newChan, writeChan, getChanContents)
 import Control.Monad (foldM, forM_, forM, (>=>))
 import Data.Bits (testBit, (.&.), complement, popCount, bit)
 import Data.Char (digitToInt, intToDigit, isDigit)
@@ -218,30 +219,39 @@ solveSudoku board
 -- Reads the puzzles from stdin and solves them
 main :: IO ()
 main = do
-  -- read the puzzles in chunks of 10
-  chunks <- fmap (chunksOf 10 . lines) getContents
+  -- read the puzzles in chunks of 100
+  chunks <- fmap (chunksOf 100 . lines) getContents
+  solChan <- newChan
+  done <- newEmptyMVar
+
+  -- print the solutions (or errors) and wait for all thread to finish
+  forkIO $ do
+    solutions <- getChanContents solChan
+    printSolutions solutions (length chunks)
+    putMVar done ()
 
   -- spawn a thread for each chunk
-  solutionsVs <- forM chunks $ \chunk -> do
-    solutionsV <- newEmptyMVar
-    forkIO $ do
+  forM_ chunks $ \chunk -> forkIO $ do
       -- for each line in the chunk, read it as a Sudoku board and solve it
       -- return solution as a string represented by showBoard if solvable else "Unsolvable"
       -- return an error if invalid board
-      solutions <- forM chunk $ \line -> do
+      forM_ chunk $ \line -> do
         start <- getCPUTime
         let sudoku = readBoard line
         case sudoku of
-          Nothing -> return $ "Invalid input sudoku: " ++ line
+          Nothing -> writeChan solChan $ "Invalid input sudoku: " ++ line
           Just board -> do
             let !res = solveSudoku board
             end <- getCPUTime
             let diff = fromIntegral (end - start) / (10 ^ 9) :: Double
 
-            return $ printf "%s -> %s [%0.3f ms]" line
-                       (maybe "Unsolvable" showBoard res) diff
-      putMVar solutionsV solutions
-    return solutionsV
+            let !sol = printf "%s -> %s [%0.3f ms]" line
+                         (maybe "Unsolvable" showBoard res) diff
+            writeChan solChan sol
+      writeChan solChan "DONE"
 
-  -- wait for all thread to finish and print the solutions (or errors)
-  forM_ solutionsVs $ takeMVar >=> mapM_ putStrLn
+  takeMVar done
+  where
+    printSolutions _ 0           = return ()
+    printSolutions ("DONE":xs) l = printSolutions xs (l - 1)
+    printSolutions (x:xs) l      = putStrLn x >> printSolutions xs l
