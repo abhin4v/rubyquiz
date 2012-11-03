@@ -16,8 +16,8 @@ source-repository head
 library
   exposed-modules   : AStar, TicTacToe, KnightsTravails, Cryptograms, EnglishNumerals,
                       GedcomParser, PhoneNumberWords, SolataireCipher,
-                      BarrelOfMonkeys, AmazingMazes, SudokuSolver, NumericMaze,
-                      DiceRoller
+                      BarrelOfMonkeys, AmazingMazes, Sudoku.Board, Sudoku.Solver,
+                      NumericMaze, DiceRoller
   build-depends     : base == 4.*,
                       containers == 0.4.*,
                       mtl == 2.1.*,
@@ -114,8 +114,8 @@ executable SudokuSolver
                       mtl == 2.1.*,
                       split == 0.2.1.*,
                       unordered-containers == 0.2.1.*
-  main-is           : SudokuSolver.hs
-  ghc-options       : -threaded -rtsopts -fllvm -main-is SudokuSolver
+  main-is           : Sudoku/Solver.hs
+  ghc-options       : -threaded -rtsopts -fllvm -main-is Sudoku.Solver
   default-language  : Haskell2010
 
 executable NumericMaze
